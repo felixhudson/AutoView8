@@ -19,6 +19,26 @@ import sys
 from pathlib import Path
 from typing import Tuple
 
+# Console output may be redirected to a file with a legacy code page (cp1252
+# on Windows CI); never let a log message crash the script.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding='utf-8', errors='replace')
+    except (AttributeError, ValueError):
+        pass
+
+
+def read_source(path: Path) -> str:
+    """Read a source file without translating line endings."""
+    with open(path, 'r', encoding='utf-8', newline='') as f:
+        return f.read()
+
+
+def write_source(path: Path, content: str) -> None:
+    """Write a source file without translating line endings (no LF -> CRLF)."""
+    with open(path, 'w', encoding='utf-8', newline='') as f:
+        f.write(content)
+
 
 class SemanticPatcher:
     """语义化 Patch 应用器"""
@@ -55,7 +75,7 @@ class SemanticPatcher:
             return False
 
         try:
-            content = file_path.read_text(encoding='utf-8')
+            content = read_source(file_path)
         except Exception as e:
             self.log(f"[SEMANTIC] ✗ 读取文件失败: {e}")
             return False
@@ -80,7 +100,7 @@ class SemanticPatcher:
 
         # 写回文件
         try:
-            file_path.write_text(new_content, encoding='utf-8')
+            write_source(file_path, new_content)
             self.log("[SEMANTIC] ✅ string.cc 已成功应用语义化 patch")
             return True
         except Exception as e:
@@ -102,13 +122,16 @@ class SemanticPatcher:
             return False
 
         try:
-            content = file_path.read_text(encoding='utf-8')
+            content = read_source(file_path)
         except Exception as e:
             self.log(f"[SEMANTIC] ✗ 读取文件失败: {e}")
             return False
 
         # 匹配要删除的行（允许空白变化）
-        pattern = r'\s*CHECK_EQ\s*\(\s*magic_number_\s*,\s*SerializedData::kMagicNumber\s*\)\s*;?\s*\n?'
+        # Remove the whole line only; don't swallow neighbouring newlines.
+        pattern = re.compile(
+            r'^[ \t]*CHECK_EQ\s*\(\s*magic_number_\s*,\s*SerializedData::kMagicNumber\s*\)\s*;?[ \t]*\r?\n?',
+            re.MULTILINE)
 
         if not re.search(pattern, content):
             self.log("[SEMANTIC] ⚠️  deserializer.cc: 未找到匹配模式（可能已经应用过）")
@@ -122,7 +145,7 @@ class SemanticPatcher:
             return True
 
         try:
-            file_path.write_text(new_content, encoding='utf-8')
+            write_source(file_path, new_content)
             self.log("[SEMANTIC] ✅ deserializer.cc 已成功应用语义化 patch")
             return True
         except Exception as e:
@@ -149,7 +172,7 @@ class SemanticPatcher:
             return False
 
         try:
-            content = file_path.read_text(encoding='utf-8')
+            content = read_source(file_path)
         except Exception as e:
             self.log(f"[SEMANTIC] ✗ 读取文件失败: {e}")
             return False
@@ -182,7 +205,7 @@ class SemanticPatcher:
             return True
 
         try:
-            file_path.write_text(new_content, encoding='utf-8')
+            write_source(file_path, new_content)
             self.log("[SEMANTIC] ✅ code-serializer.cc 已成功应用语义化 patch")
             return True
         except Exception as e:

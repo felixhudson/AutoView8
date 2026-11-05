@@ -143,6 +143,9 @@ if not defined PYTHON_CMD (
 )
 
 call :log "[LEVEL 4] Running semantic replacement script..."
+REM Output is redirected to a file, so Python would default to cp1252.
+set "PYTHONUTF8=1"
+set "PYTHONIOENCODING=utf-8"
 call %PYTHON_CMD% "%SEMANTIC_SCRIPT%" "%V8_DIR%" "%LOG_FILE%" >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     call :log "[LEVEL 4] FAILED: semantic replacement"
