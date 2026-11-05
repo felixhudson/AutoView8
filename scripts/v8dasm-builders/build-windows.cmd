@@ -130,6 +130,16 @@ if defined BUILD_ARGS set "GN_ARGS=!GN_ARGS! !BUILD_ARGS!"
 
 echo GN Args: !GN_ARGS!
 
+REM Optionally pin the MSVC toolset (e.g. 14.29): V8's bundled clang is too
+REM old for the newest MSVC STL headers on the runners.
+if defined V8DASM_MSVC_TOOLSET (
+    call python3 "%WORKSPACE_DIR%\scripts\v8dasm-builders\pin-msvc-toolset.py" "%V8_DIR%" "%V8DASM_MSVC_TOOLSET%"
+    if errorlevel 1 (
+        echo [ERROR] could not pin MSVC toolset %V8DASM_MSVC_TOOLSET%
+        exit /b 1
+    )
+)
+
 REM 直接使用 gn gen 生成构建配置
 call gn gen out.gn\x64.release --args="!GN_ARGS!"
 if errorlevel 1 (

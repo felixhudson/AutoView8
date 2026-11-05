@@ -2,7 +2,7 @@ name: Build V8 Disassembler (v8dasm)
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, 'version-*' ]
     paths:
       - 'Disassembler/**'
       - 'scripts/v8dasm-builders/**'
@@ -45,6 +45,9 @@ jobs:
       V8_ROOT: D:\v8root
       # Echo every batch command before it runs. Set to "0" for a quieter log.
       V8DASM_DEBUG: "1"
+      # V8 10.2's bundled clang can't parse the newest MSVC STL (14.4x);
+      # build against the VS2019-era v142 toolset instead.
+      V8DASM_MSVC_TOOLSET: "14.29"
     strategy:
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
       fail-fast: false
@@ -55,6 +58,30 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
+      - name: Ensure MSVC ${{ env.V8DASM_MSVC_TOOLSET }} toolset
+        shell: pwsh
+        run: |
+          $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
+          $vs = & "$installer\vswhere.exe" -latest -products * -property installationPath
+          $msvc = Join-Path $vs 'VC\Tools\MSVC'
+          Write-Host "Visual Studio: $vs"
+          Write-Host "Installed MSVC toolsets:"
+          Get-ChildItem $msvc -Directory | ForEach-Object { Write-Host "  $($_.Name)" }
+          if (Get-ChildItem $msvc -Directory -Filter "$env:V8DASM_MSVC_TOOLSET.*") {
+            Write-Host "MSVC $env:V8DASM_MSVC_TOOLSET already installed"
+            exit 0
+          }
+          Write-Host "Installing MSVC v142 (14.29) build tools..."
+          $p = Start-Process -Wait -PassThru -FilePath "$installer\vs_installer.exe" -ArgumentList @(
+            'modify', '--installPath', "`"$vs`"",
+            '--add', 'Microsoft.VisualStudio.Component.VC.14.29.16.11.x86.x64',
+            '--quiet', '--norestart', '--nocache')
+          Write-Host "vs_installer exit code: $($p.ExitCode)"
+          if (-not (Get-ChildItem $msvc -Directory -Filter "$env:V8DASM_MSVC_TOOLSET.*")) {
+            Write-Error "MSVC $env:V8DASM_MSVC_TOOLSET still not installed"
+            exit 1
+          }
 
       # depot_tools + the synced V8 checkout (incl. gclient deps) live in
       # V8_ROOT and are cached as one entry per V8 version. The cache is
