@@ -3,8 +3,10 @@ REM Set V8DASM_DEBUG=1 to echo every command before it runs.
 if "%V8DASM_DEBUG%"=="1" echo on
 setlocal enabledelayedexpansion
 
-set V8_VERSION=%1
-set BUILD_ARGS=%2
+REM The tilde form strips surrounding quotes; the workflow passes build args
+REM quoted ("a=true b=true"), and leftover quotes break later if checks.
+set "V8_VERSION=%~1"
+set "BUILD_ARGS=%~2"
 
 echo ==========================================
 echo Building v8dasm for Windows x64
@@ -123,18 +125,25 @@ REM 构建 GN 参数字符串
 set GN_ARGS=target_os=\"win\" target_cpu=\"x64\" is_component_build=false is_debug=false use_custom_libcxx=false v8_monolithic=true v8_static_library=true v8_enable_disassembler=true v8_enable_object_print=true v8_use_external_startup_data=false dcheck_always_on=false symbol_level=0 is_clang=true
 
 REM 如果有额外的构建参数，追加
-if not "%BUILD_ARGS%"=="" (
-    set GN_ARGS=%GN_ARGS% %BUILD_ARGS%
-)
+REM (delayed expansion, no ( ) block: the values contain = and quotes)
+if defined BUILD_ARGS set "GN_ARGS=!GN_ARGS! !BUILD_ARGS!"
 
-echo GN Args: %GN_ARGS%
+echo GN Args: !GN_ARGS!
 
 REM 直接使用 gn gen 生成构建配置
-call gn gen out.gn\x64.release --args="%GN_ARGS%"
+call gn gen out.gn\x64.release --args="!GN_ARGS!"
+if errorlevel 1 (
+    echo [ERROR] gn gen failed
+    exit /b 1
+)
 
 REM 构建 V8 静态库
 echo =====[ Building V8 Monolith ]=====
 call ninja -C out.gn\x64.release v8_monolith
+if errorlevel 1 (
+    echo [ERROR] ninja build of v8_monolith failed
+    exit /b 1
+)
 
 REM 编译 v8dasm
 echo =====[ Compiling v8dasm ]=====
