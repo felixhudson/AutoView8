@@ -171,10 +171,13 @@ set OUTPUT_NAME=v8dasm-%V8_VERSION%.exe
 REM -DV8_GN_HEADER + gen\include: use the same V8 config defines as the build.
 REM -fms-runtime-lib=static: V8 is built with /MT; mixing CRTs fails to link.
 REM winmm/dbghelp/ws2_32/advapi32: system libs v8_libbase needs.
+REM -I. because v8dasm.cpp includes "include/v8.h"; -Iinclude for V8's own
+REM headers, which include each other as "v8config.h", "libplatform/...".
 clang++ %DASM_SOURCE% ^
     -std=c++20 ^
     -O2 ^
     -DV8_GN_HEADER ^
+    -I. ^
     -Iinclude ^
     -Iout.gn\x64.release\gen\include ^
     -fms-runtime-lib=static ^
