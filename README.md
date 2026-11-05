@@ -2,6 +2,8 @@
 
 一个全自动的 V8 反汇编器 (v8dasm) 构建系统，支持多平台、多版本编译，并自动发布到 GitHub Releases。
 
+[English instructions](READMEENGLISH.md)
+
 ## 🚀 快速开始
 
 ### 自动化构建流程（推荐）
