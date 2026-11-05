@@ -77,12 +77,12 @@ call "%WORKSPACE_DIR%\scripts\v8dasm-builders\patch-utils\apply-patch.cmd" ^
     "true"
 
 if %errorlevel% neq 0 (
-    echo ❌ Patch application failed. Build aborted.
+    echo [ERROR] Patch application failed. Build aborted.
     echo 请检查日志文件: %PATCH_LOG%
     exit /b 1
 )
 
-echo ✅ Patch applied successfully
+echo [OK] Patch applied successfully
 
 
 REM 配置构建
@@ -124,7 +124,7 @@ if exist %OUTPUT_NAME% (
     echo =====[ Build Successful ]=====
     dir %OUTPUT_NAME%
     echo.
-    echo ✅ 编译完成: %OUTPUT_NAME%
+    echo [OK] 编译完成: %OUTPUT_NAME%
     echo    位置: %CD%\%OUTPUT_NAME%
 ) else (
     echo ERROR: %OUTPUT_NAME% not found!
