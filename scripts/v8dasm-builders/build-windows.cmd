@@ -1,4 +1,6 @@
 @echo off
+REM Set V8DASM_DEBUG=1 to echo every command before it runs.
+if "%V8DASM_DEBUG%"=="1" echo on
 setlocal enabledelayedexpansion
 
 set V8_VERSION=%1

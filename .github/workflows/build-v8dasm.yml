@@ -43,6 +43,8 @@ jobs:
     env:
       # Outside the workspace so actions/checkout never touches it.
       V8_ROOT: D:\v8root
+      # Echo every batch command before it runs. Set to "0" for a quieter log.
+      V8DASM_DEBUG: "1"
     strategy:
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
       fail-fast: false

@@ -11,7 +11,13 @@ REM
 REM NOTE: keep this file pure ASCII. cmd.exe misparses / crashes (0xC0000005)
 REM on multi-byte UTF-8 characters such as emoji inside ( ) blocks when the
 REM console code page is 65001, which is the case on GitHub Actions runners.
+REM
+REM Every git / python call uses "call": depot_tools puts git.bat and
+REM python3.bat on PATH, and running a .bat without "call" never returns.
+REM
+REM Set V8DASM_DEBUG=1 to echo every command before it runs.
 
+if "%V8DASM_DEBUG%"=="1" echo on
 setlocal enabledelayedexpansion
 
 set "PATCH_FILE=%~1"
@@ -50,12 +56,19 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM Record which git / python will actually run (a .bat shim vs a real .exe)
+echo [ENV] git resolves to:
+where git
+echo [ENV] python3 resolves to:
+where python3
+call git --version
+
 REM ---- Level 0: reset to a clean state ----
 call :reset_repo
 
 REM ---- Already applied? (reverse check) ----
 call :log "[CHECK] Checking whether the patch is already applied..."
-git apply --check --reverse "%PATCH_FILE%" >nul 2>&1
+call git apply --check --reverse "%PATCH_FILE%" >nul 2>&1
 if not errorlevel 1 (
     call :log "[CHECK] OK: patch already applied, skipping"
     exit /b 0
@@ -65,10 +78,10 @@ call :log ""
 
 REM ---- Level 1: git apply ----
 call :log "[LEVEL 1] Trying git apply..."
-git apply --check "%PATCH_FILE%" >> "%LOG_FILE%" 2>&1
+call git apply --check "%PATCH_FILE%" >> "%LOG_FILE%" 2>&1
 if errorlevel 1 goto :level1_failed
 call :log "[LEVEL 1] Check passed, applying..."
-git apply --verbose "%PATCH_FILE%" >> "%LOG_FILE%" 2>&1
+call git apply --verbose "%PATCH_FILE%" >> "%LOG_FILE%" 2>&1
 if errorlevel 1 goto :level1_failed
 call :log "[LEVEL 1] SUCCESS: patch applied with git apply"
 exit /b 0
@@ -80,7 +93,7 @@ call :reset_repo
 
 REM ---- Level 2: git apply -3 (three-way merge) ----
 call :log "[LEVEL 2] Trying git apply -3 (three-way merge)..."
-git apply -3 --verbose "%PATCH_FILE%" >> "%LOG_FILE%" 2>&1
+call git apply -3 --verbose "%PATCH_FILE%" >> "%LOG_FILE%" 2>&1
 if errorlevel 1 goto :level2_failed
 REM Any unmerged paths mean conflicts
 set "HAS_CONFLICTS="
@@ -99,7 +112,7 @@ call :reset_repo
 
 REM ---- Level 3: git apply --ignore-whitespace ----
 call :log "[LEVEL 3] Trying git apply --ignore-whitespace..."
-git apply --ignore-whitespace --verbose "%PATCH_FILE%" >> "%LOG_FILE%" 2>&1
+call git apply --ignore-whitespace --verbose "%PATCH_FILE%" >> "%LOG_FILE%" 2>&1
 if errorlevel 1 goto :level3_failed
 call :log "[LEVEL 3] SUCCESS: patch applied with --ignore-whitespace"
 exit /b 0
@@ -130,7 +143,7 @@ if not defined PYTHON_CMD (
 )
 
 call :log "[LEVEL 4] Running semantic replacement script..."
-%PYTHON_CMD% "%SEMANTIC_SCRIPT%" "%V8_DIR%" "%LOG_FILE%" >> "%LOG_FILE%" 2>&1
+call %PYTHON_CMD% "%SEMANTIC_SCRIPT%" "%V8_DIR%" "%LOG_FILE%" >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     call :log "[LEVEL 4] FAILED: semantic replacement"
     goto :all_failed
@@ -143,6 +156,10 @@ call :log ""
 call :log "========================================"
 call :log "FAILED: all patch application methods failed"
 call :log "========================================"
+echo.
+echo =====[ Full contents of %LOG_FILE% ]=====
+type "%LOG_FILE%"
+echo =====[ end of log ]=====
 if /i "%ABORT_ON_FAILURE%"=="true" (
     call :log "Build aborted because the patch could not be applied."
     call :log "See log file: %LOG_FILE%"
@@ -161,19 +178,19 @@ REM ================= subroutines =================
 REM :log "message" - print to console and append to the log file
 REM Uses delayed expansion and no ( ) block so messages may contain ( ).
 :log
-set "LOG_MSG=%~1"
-echo(!LOG_MSG!
->> "%LOG_FILE%" echo(!LOG_MSG!
+@set "LOG_MSG=%~1"
+@echo(!LOG_MSG!
+@>> "%LOG_FILE%" echo(!LOG_MSG!
 goto :eof
 
 REM :reset_repo - discard any local changes in the V8 checkout
 :reset_repo
 call :log "[LEVEL 0] Resetting V8 repository to a clean state..."
-git diff --quiet >nul 2>&1
+call git diff --quiet >nul 2>&1
 if errorlevel 1 (
     call :log "[RESET] Uncommitted changes detected, resetting..."
-    git reset --hard HEAD >> "%LOG_FILE%" 2>&1
-    git clean -fd >> "%LOG_FILE%" 2>&1
+    call git reset --hard HEAD >> "%LOG_FILE%" 2>&1
+    call git clean -fd >> "%LOG_FILE%" 2>&1
     call :log "[RESET] OK: repository reset"
 ) else (
     call :log "[RESET] OK: repository already clean"
