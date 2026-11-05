@@ -40,6 +40,9 @@ jobs:
     name: Windows x64 - V8 ${{ matrix.version.v8 }}
     runs-on: windows-2022
     needs: prepare
+    env:
+      # Outside the workspace so actions/checkout never touches it.
+      V8_ROOT: D:\v8root
     strategy:
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
       fail-fast: false
@@ -51,22 +54,37 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Cache Depot Tools
-        uses: actions/cache@v4
+      # depot_tools + the synced V8 checkout (incl. gclient deps) live in
+      # V8_ROOT and are cached as one entry per V8 version. The cache is
+      # saved right after the sync step, so a later failure (patch, compile)
+      # does not throw the checkout away. Bump the -v1 suffix to force a
+      # fresh checkout.
+      - name: Restore V8 checkout cache
+        id: v8-cache
+        uses: actions/cache/restore@v4
         with:
-          path: ~/depot_tools
-          key: depot-tools-windows-${{ runner.os }}
+          path: ${{ env.V8_ROOT }}
+          key: v8-checkout-windows-${{ matrix.version.v8 }}-v1
 
-      - name: Cache V8 Source
-        uses: actions/cache@v4
+      - name: Sync V8 source
+        if: steps.v8-cache.outputs.cache-hit != 'true'
+        shell: cmd
+        env:
+          V8DASM_STAGE: sync
+        run: |
+          call scripts\v8dasm-builders\build-windows.cmd ${{ matrix.version.v8 }} "${{ matrix.version.args }}"
+
+      - name: Save V8 checkout cache
+        if: steps.v8-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
         with:
-          path: ~/v8
-          key: v8-source-${{ matrix.version.v8 }}-windows
-          restore-keys: |
-            v8-source-${{ matrix.version.v8 }}-
+          path: ${{ env.V8_ROOT }}
+          key: v8-checkout-windows-${{ matrix.version.v8 }}-v1
 
       - name: Build v8dasm
         shell: cmd
+        env:
+          V8DASM_STAGE: build
         run: |
           call scripts\v8dasm-builders\build-windows.cmd ${{ matrix.version.v8 }} "${{ matrix.version.args }}"
 
@@ -74,7 +92,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: v8dasm-windows-x64-v${{ matrix.version.v8 }}
-          path: v8/v8/v8dasm-${{ matrix.version.v8 }}.exe
+          path: ${{ env.V8_ROOT }}\v8\v8\v8dasm-${{ matrix.version.v8 }}.exe
           retention-days: 30
 
   release:

@@ -30,7 +30,15 @@ git config --global user.email "v8dasm.builder@localhost"
 git config --global core.autocrlf false
 git config --global core.filemode false
 
-cd %HOMEPATH%
+REM V8_ROOT: where depot_tools and the V8 checkout live (cached by CI).
+REM V8DASM_STAGE: all (default) | sync (fetch/checkout/gclient sync only)
+REM               | build (skip sync, use an existing checkout)
+if not defined V8_ROOT set "V8_ROOT=%USERPROFILE%"
+if not defined V8DASM_STAGE set "V8DASM_STAGE=all"
+echo V8_ROOT: %V8_ROOT%
+echo Stage: %V8DASM_STAGE%
+if not exist "%V8_ROOT%" mkdir "%V8_ROOT%"
+cd /d "%V8_ROOT%"
 
 REM 获取 Depot Tools
 if not exist depot_tools (
@@ -48,6 +56,8 @@ REM 创建工作目录
 if not exist v8 mkdir v8
 cd v8
 
+if /i "%V8DASM_STAGE%"=="build" goto :skip_sync
+
 REM 获取 V8 源码
 if not exist v8 (
     echo =====[ Fetching V8 ]=====
@@ -63,6 +73,26 @@ echo =====[ Checking out V8 %V8_VERSION% ]=====
 call git fetch --all --tags
 call git checkout %V8_VERSION%
 call gclient sync
+if errorlevel 1 (
+    echo [ERROR] gclient sync failed
+    exit /b 1
+)
+
+if /i "%V8DASM_STAGE%"=="sync" (
+    echo [OK] V8 source synced, stopping after sync stage
+    exit /b 0
+)
+goto :after_sync
+
+:skip_sync
+if not exist v8 (
+    echo [ERROR] No V8 checkout in %V8_ROOT%\v8 - run the sync stage first
+    exit /b 1
+)
+cd v8
+set V8_DIR=%CD%
+
+:after_sync
 
 REM 应用补丁（使用多级退避策略）
 echo =====[ Applying v8.patch ]=====
