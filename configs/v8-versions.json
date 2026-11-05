@@ -1,8 +1,8 @@
 {
   "versions": [
     {
-      "v8_version": "14.2.231.21",
-      "node_version": "Electron 39.2.7 (Chromium 142)",
+      "v8_version": "10.2.154.15",
+      "node_version": "v18.x",
       "build_args": "v8_enable_pointer_compression=true v8_enable_sandbox=true"
     }
   ]
