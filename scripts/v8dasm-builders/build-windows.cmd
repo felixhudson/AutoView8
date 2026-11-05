@@ -125,7 +125,12 @@ REM 构建 GN 参数字符串
 REM treat_warnings_as_errors=false: our non-default config (sandbox, object
 REM print, monolith) trips warnings such as -Winvalid-offsetof that upstream
 REM never sees; with /WX they would abort the build.
-set GN_ARGS=target_os=\"win\" target_cpu=\"x64\" is_component_build=false is_debug=false use_custom_libcxx=false v8_monolithic=true v8_static_library=true v8_enable_disassembler=true v8_enable_object_print=true v8_use_external_startup_data=false dcheck_always_on=false symbol_level=0 is_clang=true treat_warnings_as_errors=false
+REM No v8_static_library=true: it turns header-only source sets into empty
+REM static libraries that lld-link then cannot find (v8_heap_base_headers.lib).
+REM v8_monolith already bundles v8_libbase and v8_libplatform.
+REM v8_generate_external_defines_header=true writes gen\include\v8-gn.h with
+REM the defines (pointer compression, sandbox, ...) embedders must match.
+set GN_ARGS=target_os=\"win\" target_cpu=\"x64\" is_component_build=false is_debug=false use_custom_libcxx=false v8_monolithic=true v8_generate_external_defines_header=true v8_enable_disassembler=true v8_enable_object_print=true v8_use_external_startup_data=false dcheck_always_on=false symbol_level=0 is_clang=true treat_warnings_as_errors=false
 
 REM 如果有额外的构建参数，追加
 REM (delayed expansion, no ( ) block: the values contain = and quotes)
@@ -163,15 +168,27 @@ echo =====[ Compiling v8dasm ]=====
 set DASM_SOURCE=%WORKSPACE_DIR%\Disassembler\v8dasm.cpp
 set OUTPUT_NAME=v8dasm-%V8_VERSION%.exe
 
+REM -DV8_GN_HEADER + gen\include: use the same V8 config defines as the build.
+REM -fms-runtime-lib=static: V8 is built with /MT; mixing CRTs fails to link.
+REM winmm/dbghelp/ws2_32/advapi32: system libs v8_libbase needs.
 clang++ %DASM_SOURCE% ^
     -std=c++20 ^
     -O2 ^
+    -DV8_GN_HEADER ^
     -Iinclude ^
+    -Iout.gn\x64.release\gen\include ^
+    -fms-runtime-lib=static ^
     -Lout.gn\x64.release\obj ^
-    -lv8_libbase ^
-    -lv8_libplatform ^
     -lv8_monolith ^
+    -lwinmm ^
+    -ldbghelp ^
+    -lws2_32 ^
+    -ladvapi32 ^
     -o %OUTPUT_NAME%
+if errorlevel 1 (
+    echo [ERROR] compiling/linking v8dasm failed
+    exit /b 1
+)
 
 REM 验证编译
 if exist %OUTPUT_NAME% (
