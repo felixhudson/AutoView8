@@ -1,8 +1,8 @@
 diff --git a/src/diagnostics/objects-printer.cc b/src/diagnostics/objects-printer.cc
-index 5b546e29926..45d7b50b7f5 100644
+index 2ec89d5..41dc89e 100644
 --- a/src/diagnostics/objects-printer.cc
 +++ b/src/diagnostics/objects-printer.cc
-@@ -1687,7 +1687,6 @@ void SharedFunctionInfo::SharedFunctionInfoPrint(std::ostream& os) {
+@@ -1629,7 +1629,6 @@ void SharedFunctionInfo::SharedFunctionInfoPrint(std::ostream& os) {
    os << "\n - data: " << Brief(function_data(kAcquireLoad));
    os << "\n - code (from data): ";
    os << Brief(GetCode());
@@ -10,7 +10,7 @@ index 5b546e29926..45d7b50b7f5 100644
    // Script files are often large, thus only print their {Brief} representation.
    os << "\n - script: " << Brief(script());
    os << "\n - function token position: " << function_token_position();
-@@ -1710,6 +1709,10 @@ void SharedFunctionInfo::SharedFunctionInfoPrint(std::ostream& os) {
+@@ -1652,6 +1651,10 @@ void SharedFunctionInfo::SharedFunctionInfoPrint(std::ostream& os) {
      os << "<none>";
    }
    os << "\n";
@@ -22,10 +22,10 @@ index 5b546e29926..45d7b50b7f5 100644
  
  void JSGlobalProxy::JSGlobalProxyPrint(std::ostream& os) {
 diff --git a/src/objects/objects.cc b/src/objects/objects.cc
-index 559160358c1..420b3da2b66 100644
+index d161461..500b479 100644
 --- a/src/objects/objects.cc
 +++ b/src/objects/objects.cc
-@@ -1850,6 +1850,16 @@ void HeapObject::HeapObjectShortPrint(std::ostream& os) {
+@@ -1860,6 +1860,16 @@ void HeapObject::HeapObjectShortPrint(std::ostream& os) {
      os << accumulator.ToCString().get();
      return;
    }
@@ -42,7 +42,7 @@ index 559160358c1..420b3da2b66 100644
    switch (map(cage_base).instance_type()) {
      case MAP_TYPE: {
        os << "<Map";
-@@ -1936,14 +1946,24 @@ void HeapObject::HeapObjectShortPrint(std::ostream& os) {
+@@ -1942,14 +1952,24 @@ void HeapObject::HeapObjectShortPrint(std::ostream& os) {
        break;
      case FIXED_ARRAY_TYPE:
        os << "<FixedArray[" << FixedArray::cast(*this).length() << "]>";
@@ -67,7 +67,7 @@ index 559160358c1..420b3da2b66 100644
        break;
      case BYTE_ARRAY_TYPE:
        os << "<ByteArray[" << ByteArray::cast(*this).length() << "]>";
-@@ -2022,6 +2042,9 @@ void HeapObject::HeapObjectShortPrint(std::ostream& os) {
+@@ -2028,6 +2048,9 @@ void HeapObject::HeapObjectShortPrint(std::ostream& os) {
        } else {
          os << "<SharedFunctionInfo>";
        }
@@ -78,10 +78,10 @@ index 559160358c1..420b3da2b66 100644
      }
      case JS_MESSAGE_OBJECT_TYPE:
 diff --git a/src/objects/string.cc b/src/objects/string.cc
-index cd134f84055..285d55fda5e 100644
+index 1670a81..d5e6405 100644
 --- a/src/objects/string.cc
 +++ b/src/objects/string.cc
-@@ -477,13 +477,6 @@ void String::StringShortPrint(StringStream* accumulator) {
+@@ -602,13 +602,6 @@ void String::StringShortPrint(StringStream* accumulator) {
    accumulator->Add("<String[%u]: ", len);
    accumulator->Add(PrefixForDebugPrint());
  
@@ -96,23 +96,30 @@ index cd134f84055..285d55fda5e 100644
    accumulator->Add(SuffixForDebugPrint());
    accumulator->Put('>');
 diff --git a/src/snapshot/code-serializer.cc b/src/snapshot/code-serializer.cc
-index 3f380e6a2ff..1f55cb9009a 100644
+index 618cf9e..d267a73 100644
 --- a/src/snapshot/code-serializer.cc
 +++ b/src/snapshot/code-serializer.cc
-@@ -466,6 +466,12 @@ MaybeHandle<SharedFunctionInfo> CodeSerializer::Deserialize(
-     if (FLAG_profile_deserialization) PrintF("[Deserializing failed]\n");
+@@ -4,6 +4,7 @@
+ 
+ #include "src/snapshot/code-serializer.h"
+ 
++#include <iostream>
+ #include <memory>
+ 
+ #include "src/base/logging.h"
+@@ -456,6 +457,11 @@ MaybeHandle<SharedFunctionInfo> CodeSerializer::Deserialize(
      return MaybeHandle<SharedFunctionInfo>();
    }
-+
+ 
 +  std::cout << "\nStart SharedFunctionInfo\n";
 +  result->SharedFunctionInfoPrint(std::cout);
 +  std::cout << "\nEnd SharedFunctionInfo\n";
 +  std::cout << std::flush;
 +
-   BaselineBatchCompileIfSparkplugCompiled(isolate,
-                                           Script::cast(result->script()));
    if (FLAG_profile_deserialization) {
-@@ -651,9 +657,7 @@ SerializedCodeData::SerializedCodeData(const std::vector<byte>* payload,
+     double ms = timer.Elapsed().InMillisecondsF();
+     int length = cached_data->length();
+@@ -609,9 +615,7 @@ SerializedCodeData::SerializedCodeData(const std::vector<byte>* payload,
  
  SerializedCodeSanityCheckResult SerializedCodeData::SanityCheck(
      uint32_t expected_source_hash) const {
@@ -124,10 +131,10 @@ index 3f380e6a2ff..1f55cb9009a 100644
  
  SerializedCodeSanityCheckResult SerializedCodeData::SanityCheckJustSource(
 diff --git a/src/snapshot/deserializer.cc b/src/snapshot/deserializer.cc
-index 09fffbbed37..8ce3b2680ef 100644
+index e1383ca..4303487 100644
 --- a/src/snapshot/deserializer.cc
 +++ b/src/snapshot/deserializer.cc
-@@ -210,7 +210,6 @@ Deserializer<IsolateT>::Deserializer(IsolateT* isolate,
+@@ -258,7 +258,6 @@ Deserializer<IsolateT>::Deserializer(IsolateT* isolate,
  #ifdef DEBUG
    num_api_references_ = GetNumApiReferences(isolate);
  #endif  // DEBUG

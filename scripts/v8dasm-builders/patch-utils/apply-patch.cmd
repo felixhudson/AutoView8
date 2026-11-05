@@ -143,10 +143,12 @@ if not defined PYTHON_CMD (
 )
 
 call :log "[LEVEL 4] Running semantic replacement script..."
-REM Output is redirected to a file, so Python would default to cp1252.
+REM CI output is a pipe, so Python would default to cp1252.
 set "PYTHONUTF8=1"
 set "PYTHONIOENCODING=utf-8"
-call %PYTHON_CMD% "%SEMANTIC_SCRIPT%" "%V8_DIR%" "%LOG_FILE%" >> "%LOG_FILE%" 2>&1
+REM Do NOT redirect into %LOG_FILE%: the script appends to it itself, and
+REM Windows refuses a second write handle (PermissionError).
+call %PYTHON_CMD% "%SEMANTIC_SCRIPT%" "%V8_DIR%" "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     call :log "[LEVEL 4] FAILED: semantic replacement"
     goto :all_failed
